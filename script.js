@@ -158,7 +158,6 @@ function computeAndRenderMetrics(data) {
   const maxOD = Math.max(...data.map(d => d.od));
   maxOdEl.textContent = maxOD.toFixed(3);
 
-  // If fewer than 4 points, provide preliminary estimates
   if (data.length < 4) {
     tdEl.textContent = "--";
     r2El.textContent = "0.000";
@@ -170,10 +169,7 @@ function computeAndRenderMetrics(data) {
   }
 
   // Model Parameter Estimation: Modified Gompertz
-  // OD(t) = A * exp( -exp( (mu * e / A)*(lambda - t) + 1 ) )
   const A = Math.max(maxOD, 0.1);
-  
-  // Find maximum slope in data
   let maxSlope = 0;
   let infTime = data[0].t;
   for (let i = 1; i < data.length; i++) {
@@ -187,7 +183,6 @@ function computeAndRenderMetrics(data) {
     }
   }
 
-  // Estimate lag phase lambda
   let lagEstimate = 60;
   for (let i = 0; i < data.length; i++) {
     if (data[i].od > 0.05 * A) {
@@ -199,7 +194,6 @@ function computeAndRenderMetrics(data) {
   const mu = Math.max(maxSlope, 0.001);
   const td = Math.LN2 / mu;
 
-  // Calculate R^2 for Gompertz curve
   let ssTot = 0;
   let ssRes = 0;
   const meanOD = data.reduce((acc, d) => acc + d.od, 0) / data.length;
@@ -216,7 +210,6 @@ function computeAndRenderMetrics(data) {
   infEl.textContent = `${Math.round(infTime)} min`;
   lagEl.textContent = `0 - ${Math.round(lagEstimate)} min`;
 
-  // Find start of stationary phase (where rate drops below 10% of max slope)
   let statTime = data[data.length - 1].t;
   for (let i = data.length - 1; i > 0; i--) {
     const dt = data[i].t - data[i-1].t;
@@ -326,21 +319,17 @@ function initChart() {
   });
 }
 
-// Update Chart with Dynamic Axis Handling
 function updateChartData() {
   if (!chartInstance) return;
   const rawData = experiments[currentExpKey] || [];
   const isRequested = (currentOrientation === "OD_X_TIME_Y");
 
-  // Format Scatter Points
   const scatterPoints = rawData.map(pt => isRequested ? { x: pt.od, y: pt.t } : { x: pt.t, y: pt.od });
   chartInstance.data.datasets[0].data = scatterPoints;
 
-  // Update Axis Labels
   chartInstance.options.scales.x.title.text = isRequested ? "Optical Density (OD)" : "Time (minutes)";
   chartInstance.options.scales.y.title.text = isRequested ? "Time (minutes)" : "Optical Density (OD)";
 
-  // Model Fit Line
   const showFit = document.getElementById("chkShowFit").checked;
   const showBenchmark = document.getElementById("chkBenchmark").checked;
 
@@ -359,11 +348,10 @@ function updateChartData() {
     chartInstance.data.datasets[1].data = [];
   }
 
-  // Benchmark Curve (td = 20 min)
   if (showBenchmark) {
     const benchLine = [];
     const maxT = rawData.length ? Math.max(...rawData.map(d => d.t), 300) : 300;
-    const muBench = Math.LN2 / 20; // 0.0346 min^-1
+    const muBench = Math.LN2 / 20;
     for (let t = 0; t <= maxT; t += 5) {
       const od = gompertzFunc(t, 3.0, muBench, 30);
       benchLine.push(isRequested ? { x: od, y: t } : { x: t, y: od });
@@ -378,7 +366,6 @@ function updateChartData() {
   chartInstance.update();
 }
 
-// Bulk Paste Parser
 function handleBulkPaste() {
   const text = document.getElementById("pasteTextarea").value.trim();
   if (!text) return;
@@ -391,7 +378,6 @@ function handleBulkPaste() {
       const val1 = parseFloat(parts[0]);
       const val2 = parseFloat(parts[1]);
       if (!isNaN(val1) && !isNaN(val2)) {
-        // Autodetect whether first column is time or OD
         if (val1 > 5 && val2 <= 5) {
           parsed.push({ t: val1, od: val2 });
         } else if (val2 > 5 && val1 <= 5) {
@@ -415,7 +401,6 @@ function handleBulkPaste() {
   }
 }
 
-// Kinetics Solver
 function solveKinetics() {
   const t1 = parseFloat(document.getElementById("kTime1").value);
   const od1 = parseFloat(document.getElementById("kOD1").value);
@@ -427,7 +412,6 @@ function solveKinetics() {
     return;
   }
 
-  // mu = (ln(OD2) - ln(OD1)) / (t2 - t1)
   const mu = (Math.log(od2) - Math.log(od1)) / (t2 - t1);
   const td = Math.LN2 / mu;
 
@@ -437,7 +421,6 @@ function solveKinetics() {
   document.getElementById("kineticsResultBox").classList.remove("hidden");
 }
 
-// Scrubber & Chamber Update
 function updateScrubber(t) {
   document.getElementById("scrubTimeDisplay").textContent = `${t} min`;
   const rawData = experiments[currentExpKey] || [];
@@ -452,11 +435,9 @@ function updateBiophysicalChamber(od) {
   document.getElementById("valTransmittance").textContent = `${tPercent.toFixed(1)}%`;
   document.getElementById("valAbsorbance").textContent = od.toFixed(3);
 
-  // Cuvette liquid turbidity
   const opacity = Math.min(0.92, 0.1 + (od / 3.0) * 0.82);
   document.getElementById("cuvetteLiquid").style.background = `rgba(215, 175, 80, ${opacity})`;
 
-  // Estimated cell count: ~ 8e8 cells/mL per OD600
   const cells = (od * 8.0).toFixed(1);
   document.getElementById("valCellCount").innerHTML = `${cells} &times; 10<sup>8</sup>`;
 }
@@ -479,7 +460,6 @@ function toggleSimulationPlay() {
   }
 }
 
-// Cell Field Canvas Simulator
 function initMicroscope() {
   const canvas = document.getElementById("microscopeCanvas");
   const ctx = canvas.getContext("2d");
@@ -520,7 +500,6 @@ function initMicroscope() {
   renderCells();
 }
 
-// Multi-run management
 function handleNewRun() {
   const name = prompt("Enter name for new experimental run:", `Run ${Object.keys(experiments).length + 1}`);
   if (name && name.trim()) {
@@ -556,7 +535,6 @@ function populateExperimentSelect() {
   });
 }
 
-// LocalStorage Persistence
 function saveToLocalStorage() {
   try {
     localStorage.setItem("microbial_sim_data", JSON.stringify(experiments));
@@ -577,7 +555,6 @@ function loadFromLocalStorage() {
   }
 }
 
-// Export to Excel (.xlsx) using SheetJS
 window.exportToExcel = function() {
   const data = experiments[currentExpKey] || [];
   const wsData = [
@@ -588,10 +565,10 @@ window.exportToExcel = function() {
     ["Max Optical Density:", document.getElementById("valMaxOD").textContent],
     ["Goodness of Fit (R^2):", document.getElementById("valR2").textContent],
     [],
-    ["Time (minutes)", "Optical Density (OD600)"]
+    ["#", "Time (minutes)", "Optical Density (OD600)"]
   ];
 
-  data.forEach(pt => wsData.push([pt.t, pt.od]));
+  data.forEach((pt, i) => wsData.push([i + 1, pt.t, pt.od]));
 
   const wb = XLSX.utils.book_new();
   const ws = XLSX.utils.aoa_to_sheet(wsData);
@@ -599,34 +576,47 @@ window.exportToExcel = function() {
   XLSX.writeFile(wb, `${currentExpKey.replace(/[^a-z0-9]/gi, '_')}.xlsx`);
 };
 
-// Export to Word (.doc)
 window.exportToWord = function() {
   const data = experiments[currentExpKey] || [];
-  let tableRows = data.map(pt => `<tr><td style="border:1px solid #ccc; padding:6px;">${pt.t}</td><td style="border:1px solid #ccc; padding:6px;">${pt.od.toFixed(3)}</td></tr>`).join("");
+  let tableRows = data.map((pt, i) => `<tr><td style="border:1px solid #cbd5e1; padding:6px 12px;">${i+1}</td><td style="border:1px solid #cbd5e1; padding:6px 12px;">${pt.t}</td><td style="border:1px solid #cbd5e1; padding:6px 12px;">${pt.od.toFixed(3)}</td></tr>`).join("");
 
   const docContent = `
     <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word'>
-    <head><title>Microbial Growth Report</title></head>
-    <body style="font-family: Arial, sans-serif; padding: 20px;">
-      <h1 style="color: #4f46e5;">Microbial Growth Kinetics Report</h1>
-      <p><strong>Experiment Run:</strong> ${currentExpKey}</p>
-      <p><strong>Generated On:</strong> ${new Date().toLocaleString()}</p>
-      <hr/>
-      <h2>Biological Parameters</h2>
-      <ul>
-        <li><strong>Doubling Time (t<sub>d</sub>):</strong> ${document.getElementById("valDoublingTime").textContent}</li>
-        <li><strong>Model Goodness of Fit (R<sup>2</sup>):</strong> ${document.getElementById("valR2").textContent}</li>
-        <li><strong>Inflection Point (t<sub>i</sub>):</strong> ${document.getElementById("valInflection").textContent}</li>
-        <li><strong>Max OD:</strong> ${document.getElementById("valMaxOD").textContent}</li>
-        <li><strong>Lag Phase:</strong> ${document.getElementById("valLagPhase").textContent}</li>
-        <li><strong>Exponential Phase:</strong> ${document.getElementById("valLogPhase").textContent}</li>
-      </ul>
-      <h2>Experimental Data Table</h2>
-      <table style="border-collapse: collapse; width: 60%; text-align: left;">
+    <head>
+      <meta charset="utf-8" />
+      <title>Microbial Growth Kinetics Report</title>
+      <style>
+        body { font-family: Calibri, Arial, sans-serif; color: #1e293b; padding: 25px; line-height: 1.5; }
+        h1 { color: #4338ca; border-bottom: 2px solid #4338ca; padding-bottom: 6px; }
+        h2 { color: #1e293b; margin-top: 20px; font-size: 14pt; }
+        table { border-collapse: collapse; width: 100%; margin-top: 10px; }
+        th { background: #f1f5f9; border: 1px solid #cbd5e1; padding: 8px 12px; font-weight: bold; }
+        .param-table td { border: 1px solid #cbd5e1; padding: 6px 12px; }
+      </style>
+    </head>
+    <body>
+      <h1>Microbial Growth Kinetics Report</h1>
+      <p><strong>Experimental Run:</strong> ${currentExpKey}</p>
+      <p><strong>Generated Date:</strong> ${new Date().toLocaleString()}</p>
+      
+      <h2>1. Biological & Kinetic Parameters</h2>
+      <table class="param-table" style="width: 80%;">
+        <tr><td><strong>Doubling Time (t<sub>d</sub>):</strong></td><td>${document.getElementById("valDoublingTime").textContent}</td></tr>
+        <tr><td><strong>Goodness of Fit (R<sup>2</sup>):</strong></td><td>${document.getElementById("valR2").textContent}</td></tr>
+        <tr><td><strong>Inflection Point (t<sub>i</sub>):</strong></td><td>${document.getElementById("valInflection").textContent}</td></tr>
+        <tr><td><strong>Max Optical Density:</strong></td><td>${document.getElementById("valMaxOD").textContent}</td></tr>
+        <tr><td><strong>Lag Phase:</strong></td><td>${document.getElementById("valLagPhase").textContent}</td></tr>
+        <tr><td><strong>Exponential (Log) Phase:</strong></td><td>${document.getElementById("valLogPhase").textContent}</td></tr>
+        <tr><td><strong>Stationary Phase:</strong></td><td>${document.getElementById("valStationaryPhase").textContent}</td></tr>
+      </table>
+
+      <h2>2. Full Experimental Readings (N = ${data.length})</h2>
+      <table>
         <thead>
-          <tr style="background-color: #f1f5f9;">
-            <th style="border:1px solid #ccc; padding:6px;">Time (minutes)</th>
-            <th style="border:1px solid #ccc; padding:6px;">Optical Density (OD)</th>
+          <tr>
+            <th>#</th>
+            <th>Time (minutes)</th>
+            <th>Optical Density (OD)</th>
           </tr>
         </thead>
         <tbody>
@@ -637,7 +627,7 @@ window.exportToWord = function() {
     </html>
   `;
 
-  const blob = new Blob([docContent], { type: "application/msword" });
+  const blob = new Blob([docContent], { type: "application/msword;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -645,7 +635,241 @@ window.exportToWord = function() {
   a.click();
 };
 
-// Print / PDF Export
+// EXCELLENT, PRISTINE PDF EXPORT ENGINE
 window.exportToPDF = function() {
-  window.print();
+  // 1. Immediately hide the dropdown menu so it never overlays the PDF
+  const dropdown = document.getElementById("exportDropdownMenu");
+  if (dropdown) dropdown.classList.add("hidden");
+
+  const data = experiments[currentExpKey] || [];
+  const chartImgUri = chartInstance ? chartInstance.toBase64Image() : "";
+  const isRequestedAxis = (currentOrientation === "OD_X_TIME_Y");
+  const axisDesc = isRequestedAxis ? "X: Optical Density (OD) &nbsp;|&nbsp; Y: Time (minutes)" : "X: Time (minutes) &nbsp;|&nbsp; Y: Optical Density (OD)";
+
+  let tableRows = data.map((pt, i) => `
+    <tr>
+      <td style="text-align:center;">${i + 1}</td>
+      <td style="text-align:center; font-weight:600;">${pt.t} min</td>
+      <td style="text-align:center; font-family:monospace; font-weight:bold; color:#1e293b;">${pt.od.toFixed(3)}</td>
+    </tr>
+  `).join("");
+
+  // Create a dedicated, crystal-clear scientific print document in an isolated print window
+  const printWindow = window.open("", "_blank", "width=900,height=1000");
+  if (!printWindow) {
+    // If pop-up blocked, fall back to native print with print-friendly CSS
+    window.print();
+    return;
+  }
+
+  const printDoc = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8" />
+      <title>Lab Report - ${currentExpKey}</title>
+      <style>
+        @page {
+          size: A4 portrait;
+          margin: 14mm 15mm;
+        }
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+          color: #0f172a;
+          background: #ffffff;
+          line-height: 1.45;
+          margin: 0;
+          padding: 10px;
+        }
+        .header {
+          border-bottom: 2.5px solid #4f46e5;
+          padding-bottom: 10px;
+          margin-bottom: 16px;
+        }
+        .header h1 {
+          font-size: 18pt;
+          color: #1e1b4b;
+          margin: 0 0 4px 0;
+        }
+        .meta-grid {
+          display: flex;
+          justify-content: space-between;
+          font-size: 9.5pt;
+          color: #475569;
+        }
+        .section-title {
+          font-size: 11pt;
+          font-weight: bold;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          color: #312e81;
+          border-bottom: 1px solid #e2e8f0;
+          padding-bottom: 4px;
+          margin: 16px 0 8px 0;
+        }
+        /* Parameters Grid */
+        .metrics-table {
+          width: 100%;
+          border-collapse: collapse;
+          margin-bottom: 12px;
+        }
+        .metrics-table td {
+          border: 1px solid #e2e8f0;
+          padding: 8px 12px;
+          background: #f8fafc;
+          width: 50%;
+        }
+        .metric-label {
+          font-size: 8pt;
+          color: #64748b;
+          text-transform: uppercase;
+          margin-bottom: 2px;
+        }
+        .metric-value {
+          font-size: 14pt;
+          font-weight: 700;
+          color: #1e1b4b;
+        }
+        .phase-box {
+          background: #f1f5f9;
+          border: 1px solid #cbd5e1;
+          border-radius: 6px;
+          padding: 8px 12px;
+          font-size: 9pt;
+          margin-bottom: 14px;
+        }
+        .phase-box div {
+          margin-bottom: 3px;
+        }
+        /* Chart Image */
+        .chart-box {
+          text-align: center;
+          margin: 12px 0 16px 0;
+          page-break-inside: avoid;
+        }
+        .chart-box img {
+          max-width: 95%;
+          height: auto;
+          max-height: 340px;
+          border: 1px solid #e2e8f0;
+          border-radius: 6px;
+        }
+        .chart-caption {
+          font-size: 8.5pt;
+          color: #64748b;
+          margin-top: 4px;
+          font-style: italic;
+        }
+        /* Data Table */
+        .data-table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 9pt;
+          margin-top: 6px;
+        }
+        .data-table th {
+          background: #f1f5f9;
+          color: #1e293b;
+          border: 1px solid #cbd5e1;
+          padding: 6px 10px;
+          font-weight: bold;
+        }
+        .data-table td {
+          border: 1px solid #e2e8f0;
+          padding: 5px 10px;
+        }
+        .data-table tr:nth-child(even) {
+          background: #fafafa;
+        }
+        .footer-note {
+          font-size: 8pt;
+          color: #94a3b8;
+          border-top: 1px solid #e2e8f0;
+          padding-top: 8px;
+          margin-top: 18px;
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>Microbial Growth Kinetics & OD Analysis Report</h1>
+        <div class="meta-grid">
+          <div><strong>Run Identifier:</strong> ${currentExpKey}</div>
+          <div><strong>Total Points:</strong> ${data.length} readings</div>
+          <div><strong>Date:</strong> ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}</div>
+        </div>
+      </div>
+
+      <div class="section-title">1. Biological & Kinetic Model Parameters</div>
+      <table class="metrics-table">
+        <tr>
+          <td>
+            <div class="metric-label">Doubling Time (t<sub>d</sub>)</div>
+            <div class="metric-value">${document.getElementById("valDoublingTime").textContent}</div>
+            <small style="color:#64748b;">Formula: ln(2) / &mu;<sub>max</sub></small>
+          </td>
+          <td>
+            <div class="metric-label">Goodness of Fit (R<sup>2</sup>)</div>
+            <div class="metric-value">${document.getElementById("valR2").textContent}</div>
+            <small style="color:#64748b;">Modified Gompertz correlation</small>
+          </td>
+        </tr>
+        <tr>
+          <td>
+            <div class="metric-label">Inflection Point (t<sub>i</sub>)</div>
+            <div class="metric-value">${document.getElementById("valInflection").textContent}</div>
+            <small style="color:#64748b;">Maximum specific rate inflection</small>
+          </td>
+          <td>
+            <div class="metric-label">Max Optical Density (Yield)</div>
+            <div class="metric-value">${document.getElementById("valMaxOD").textContent}</div>
+            <small style="color:#64748b;">Stationary saturation plateau</small>
+          </td>
+        </tr>
+      </table>
+
+      <div class="phase-box">
+        <div><strong>• Lag Phase:</strong> ${document.getElementById("valLagPhase").textContent}</div>
+        <div><strong>• Exponential (Log) Phase:</strong> ${document.getElementById("valLogPhase").textContent}</div>
+        <div><strong>• Stationary Phase:</strong> ${document.getElementById("valStationaryPhase").textContent}</div>
+      </div>
+
+      <div class="section-title">2. Growth Kinetics Curve Visualization</div>
+      <div class="chart-box">
+        ${chartImgUri ? `<img src="${chartImgUri}" alt="Fitted Growth Curve" />` : '<p style="color:#64748b;">(No chart generated)</p>'}
+        <div class="chart-caption">Figure 1: Microbial Growth Simulation Curve (${axisDesc})</div>
+      </div>
+
+      <div class="section-title">3. Complete Experimental Measurements (N = ${data.length})</div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th style="width: 15%;">Index (#)</th>
+            <th style="width: 45%;">Time Elapsed</th>
+            <th style="width: 40%;">Optical Density (OD<sub>600</sub>)</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${tableRows}
+        </tbody>
+      </table>
+
+      <div class="footer-note">
+        Generated by Microbial Growth Kinetics & OD Simulation Lab &bull; Model: Zwietering et al. (1990) Modified Gompertz Equation
+      </div>
+
+      <script>
+        window.addEventListener('load', () => {
+          setTimeout(() => {
+            window.print();
+          }, 350);
+        });
+      </script>
+    </body>
+    </html>
+  `;
+
+  printWindow.document.open();
+  printWindow.document.write(printDoc);
+  printWindow.document.close();
 };

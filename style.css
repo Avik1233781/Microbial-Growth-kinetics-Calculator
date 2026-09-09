@@ -543,3 +543,129 @@ body {
 textarea { width: 100%; height: 180px; font-family: monospace; resize: vertical; }
 .modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
 .hidden { display: none !important; }
+
+/* ========================================================= */
+/* PRISTINE PRINT & PDF EXPORT STYLES                        */
+/* ========================================================= */
+@media print {
+  /* Reset background and colors for crisp high-contrast printing */
+  @page {
+    size: A4 portrait;
+    margin: 12mm 15mm;
+  }
+  
+  body {
+    background-color: #ffffff !important;
+    color: #111827 !important;
+    padding: 0 !important;
+  }
+
+  /* Hide interactive clutter, buttons, menus, and controls */
+  .navbar .nav-actions,
+  .export-dropdown,
+  #exportDropdownMenu,
+  .quick-add-bar,
+  .btn,
+  .btn-group,
+  .close-btn,
+  .timeline-scrubber-box,
+  .chart-toolbar,
+  .modal,
+  th:last-child,
+  td:last-child {
+    display: none !important;
+  }
+
+  /* Convert layout into a clean single-column scientific document */
+  .grid-main {
+    display: block !important;
+  }
+
+  .panel {
+    gap: 12px !important;
+  }
+
+  .card {
+    background: #ffffff !important;
+    border: 1px solid #d1d5db !important;
+    box-shadow: none !important;
+    padding: 12px !important;
+    margin-bottom: 14px !important;
+    page-break-inside: avoid !important;
+    color: #111827 !important;
+  }
+
+  .navbar {
+    background: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+    padding: 10px 14px !important;
+  }
+
+  .navbar h1 {
+    color: #0f172a !important;
+    font-size: 1.25rem !important;
+  }
+
+  .subtitle {
+    color: #475569 !important;
+  }
+
+  /* Expand the table fully: NO scrollbars, show every single row */
+  .table-container {
+    max-height: none !important;
+    overflow: visible !important;
+    border: 1px solid #e2e8f0 !important;
+  }
+
+  .data-table {
+    width: 100% !important;
+    font-size: 9pt !important;
+  }
+
+  .data-table th {
+    background: #f1f5f9 !important;
+    color: #1e293b !important;
+    border-bottom: 2px solid #cbd5e1 !important;
+    position: static !important;
+  }
+
+  .data-table td {
+    border-bottom: 1px solid #e2e8f0 !important;
+    color: #334155 !important;
+    padding: 6px 10px !important;
+  }
+
+  /* Parameter cards styling */
+  .metric-box {
+    background: #f8fafc !important;
+    border: 1px solid #e2e8f0 !important;
+  }
+
+  .metric-label {
+    color: #64748b !important;
+  }
+
+  .metric-val {
+    color: #0f172a !important;
+  }
+
+  .phase-breakdown {
+    background: #f8fafc !important;
+    border: 1px solid #e2e8f0 !important;
+    color: #1e293b !important;
+  }
+
+  .phase-title {
+    color: #475569 !important;
+  }
+
+  .chart-wrapper {
+    height: 320px !important;
+    page-break-inside: avoid !important;
+  }
+
+  /* Ensure canvas renders clearly */
+  canvas {
+    max-width: 100% !important;
+  }
+}
