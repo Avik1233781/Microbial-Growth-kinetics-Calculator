@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Microbial Growth & Optical Density Simulation Lab</title>
+  <!-- Chart.js & SheetJS for high-performance plotting and real Excel generation -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="navbar">
+      <div class="logo-group">
+        <div class="logo-icon">🔬</div>
+        <div>
+          <h1>Microbial Growth Kinetics & OD Simulation Lab</h1>
+          <p class="subtitle">Real-time biophysical modeling, Desmos-grade plotting & kinetics analysis</p>
+        </div>
+      </div>
+      <div class="nav-actions">
+        <div class="file-selector-box">
+          <label for="experimentSelect">Active Run:</label>
+          <select id="experimentSelect" class="form-select"></select>
+          <button id="btnNewRun" class="btn btn-secondary btn-sm" title="Start a fresh blank experiment">+ New Run</button>
+          <button id="btnRenameRun" class="btn btn-secondary btn-sm" title="Rename active experiment">✏️</button>
+        </div>
+        <div class="export-dropdown">
+          <button id="exportMenuBtn" class="btn btn-primary">💾 Export Report ▾</button>
+          <div id="exportDropdownMenu" class="dropdown-menu hidden">
+            <button onclick="exportToExcel()">📊 Excel (.xlsx)</button>
+            <button onclick="exportToWord()">📝 Word Report (.doc)</button>
+            <button onclick="exportToPDF()">📄 Print / Save PDF</button>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Layout -->
+    <main class="grid-main">
+      <!-- Left Column: Data & Parameters -->
+      <section class="panel panel-left">
+        <!-- Biological Parameters (Dynamic Zero State) -->
+        <div class="card bio-metrics-card">
+          <div class="card-header">
+            <h3>BIOLOGICAL PARAMETERS</h3>
+            <span id="liveStatusBadge" class="badge badge-zero">0 Points</span>
+          </div>
+          <div class="metrics-grid">
+            <div class="metric-box">
+              <span class="metric-label">Doubling Time (t<sub>d</sub>)</span>
+              <span class="metric-val highlight-purple" id="valDoublingTime">0.0 min</span>
+              <span class="metric-sub">t<sub>d</sub> = ln(2) / &mu;<sub>max</sub></span>
+            </div>
+            <div class="metric-box">
+              <span class="metric-label">Goodness of Fit (R<sup>2</sup>)</span>
+              <span class="metric-val highlight-green" id="valR2">0.000</span>
+              <span class="metric-sub">Model correlation</span>
+            </div>
+            <div class="metric-box">
+              <span class="metric-label">Inflection Point (t<sub>i</sub>)</span>
+              <span class="metric-val highlight-cyan" id="valInflection">0 min</span>
+              <span class="metric-sub">Peak rate slope point</span>
+            </div>
+            <div class="metric-box">
+              <span class="metric-label">Max OD Recorded</span>
+              <span class="metric-val highlight-lavender" id="valMaxOD">0.000</span>
+              <span class="metric-sub">Yield plateau</span>
+            </div>
+          </div>
+          <!-- Phase Indicator Breakdown -->
+          <div class="phase-breakdown">
+            <div class="phase-row"><span class="dot dot-amber"></span> <span class="phase-title">Lag Phase:</span> <span id="valLagPhase" class="phase-duration">0 min</span></div>
+            <div class="phase-row"><span class="dot dot-teal"></span> <span class="phase-title">Log (Exponential) Phase:</span> <span id="valLogPhase" class="phase-duration">--</span></div>
+            <div class="phase-row"><span class="dot dot-purple"></span> <span class="phase-title">Stationary Phase:</span> <span id="valStationaryPhase" class="phase-duration">--</span></div>
+          </div>
+        </div>
+
+        <!-- Data Entry & Table -->
+        <div class="card data-card">
+          <div class="card-header">
+            <h3>EXPERIMENTAL READINGS</h3>
+            <div class="btn-group">
+              <button id="btnPasteModal" class="btn btn-sm btn-outline">📋 Bulk Paste</button>
+              <button id="btnClearData" class="btn btn-sm btn-danger-outline">✕ Clear All</button>
+            </div>
+          </div>
+
+          <!-- Quick Add Bar -->
+          <form id="quickAddForm" class="quick-add-bar">
+            <div class="input-inline">
+              <label>Time (min):</label>
+              <input type="number" id="quickTime" step="any" placeholder="e.g. 150" required />
+            </div>
+            <div class="input-inline">
+              <label>OD Value:</label>
+              <input type="number" id="quickOD" step="0.001" min="0" placeholder="e.g. 0.335" required />
+            </div>
+            <button type="submit" class="btn btn-sm btn-success">+ Add</button>
+          </form>
+
+          <!-- Table Container -->
+          <div class="table-container">
+            <table class="data-table" id="dataTable">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Time (min)</th>
+                  <th>Optical Density (OD)</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="dataTableBody">
+                <!-- Rows injected dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Kinetics Calculator Accordion -->
+        <div class="card kinetics-card">
+          <div class="card-header">
+            <h3>🔬 MICROBIAL KINETICS SOLVER</h3>
+          </div>
+          <p class="section-desc">Compute specific growth rate (&mu;) and generation time directly from any two log-phase measurements:</p>
+          <div class="kinetics-grid">
+            <div class="kinetics-input-group">
+              <label>Point 1 (t<sub>1</sub> min, OD<sub>1</sub>):</label>
+              <div class="row-flex">
+                <input type="number" id="kTime1" placeholder="t1" value="120" />
+                <input type="number" id="kOD1" step="0.001" placeholder="OD1" value="0.214" />
+              </div>
+            </div>
+            <div class="kinetics-input-group">
+              <label>Point 2 (t<sub>2</sub> min, OD<sub>2</sub>):</label>
+              <div class="row-flex">
+                <input type="number" id="kTime2" placeholder="t2" value="270" />
+                <input type="number" id="kOD2" step="0.001" placeholder="OD2" value="1.500" />
+              </div>
+            </div>
+          </div>
+          <button id="btnSolveKinetics" class="btn btn-outline btn-block mt-2">⚡ Calculate Specific Kinetics</button>
+          <div id="kineticsResultBox" class="kinetics-result-box hidden">
+            <div class="result-item"><strong>&mu; (Specific Growth Rate):</strong> <span id="resMu">0.0130</span> min<sup>-1</sup> (<span id="resMuHour">0.78</span> hr<sup>-1</sup>)</div>
+            <div class="result-item"><strong>t<sub>d</sub> (Generation Time):</strong> <span id="resTd">53.4</span> min</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right Column: Graphs, Visualizers & Kinetics Model -->
+      <section class="panel panel-right">
+        <!-- Interactive Chart Card -->
+        <div class="card chart-card">
+          <div class="chart-toolbar">
+            <div class="toggle-group">
+              <button id="axisToggleRequested" class="btn-toggle active" title="X: OD, Y: Time (Your requested axis orientation)">
+                X: OD &nbsp;|&nbsp; Y: Time (min)
+              </button>
+              <button id="axisToggleStandard" class="btn-toggle" title="X: Time, Y: OD (Standard microbiology curve)">
+                X: Time (min) &nbsp;|&nbsp; Y: OD
+              </button>
+            </div>
+            <div class="chart-options">
+              <label><input type="checkbox" id="chkShowFit" checked /> Show Gompertz Fit</label>
+              <label><input type="checkbox" id="chkBenchmark" /> E. coli Benchmark (20 min)</label>
+            </div>
+          </div>
+
+          <div class="chart-wrapper">
+            <canvas id="growthChart"></canvas>
+          </div>
+
+          <!-- Dynamic Live Scrubber -->
+          <div class="timeline-scrubber-box">
+            <div class="scrubber-header">
+              <span><strong>Inspection Scrub:</strong> <span id="scrubTimeDisplay">0 min</span> | Calculated OD: <span id="scrubODDisplay">0.000</span></span>
+              <button id="btnPlaySim" class="btn btn-sm btn-outline">▶ Play</button>
+            </div>
+            <input type="range" id="timeSlider" min="0" max="450" value="0" step="1" class="slider-full" />
+          </div>
+        </div>
+
+        <!-- Biophysical Visualizers -->
+        <div class="card visualizers-card">
+          <div class="card-header">
+            <h3>BIOPHYSICAL CHAMBER & SPECTROPHOTOMETRY</h3>
+          </div>
+          <div class="visualizers-grid">
+            <!-- Cuvette visualizer -->
+            <div class="cuvette-container">
+              <h4>Virtual Cuvette (A<sub>600</sub>)</h4>
+              <div class="cuvette-wrapper">
+                <div class="cuvette-glass">
+                  <div id="cuvetteLiquid" class="cuvette-liquid"></div>
+                  <div class="beam-path"></div>
+                </div>
+              </div>
+              <div class="cuvette-readings">
+                <div>Transmittance: <strong id="valTransmittance">100.0%</strong></div>
+                <div>Absorbance: <strong id="valAbsorbance">0.000</strong></div>
+              </div>
+            </div>
+
+            <!-- Microscopic view -->
+            <div class="microscope-container">
+              <h4>Microscopic Cell Field (1000x)</h4>
+              <div class="microscope-eyepiece">
+                <canvas id="microscopeCanvas" width="220" height="220"></canvas>
+              </div>
+              <div class="microscope-readings">
+                <div>Est. Biomass: <strong id="valCellCount">0.0 &times; 10<sup>8</sup></strong> cells/mL</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Model Reference & Scientific Context -->
+        <div class="card literature-card">
+          <div class="card-header">
+            <h3>THEORETICAL REFERENCE & CITATIONS</h3>
+          </div>
+          <div class="lit-content">
+            <p><strong>Modified Gompertz Equation:</strong> <span class="math-eq">y(t) = A &middot; exp(-exp((&mu;<sub>m</sub> &middot; e / A) &middot; (&lambda; - t) + 1))</span></p>
+            <ul class="lit-list">
+              <li><strong>Zwietering, M. H., et al. (1990).</strong> <em>Modeling of the Bacterial Growth Curve.</em> Applied and Environmental Microbiology, 56(6), 1875-1881.</li>
+              <li><strong>Sezonov, G., et al. (2007).</strong> <em>Escherichia coli Physiology in Luria-Bertani Broth.</em> Journal of Bacteriology, 189(23), 8746-8749.</li>
+              <li><strong>Koch, A. L. (1970).</strong> <em>Turbidity and cell count deviations in dense spectrophotometry.</em> Analytical Biochemistry.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Bulk Paste Modal -->
+  <div id="pasteModal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Bulk Paste Data</h3>
+        <button id="btnCloseModal" class="close-btn">&times;</button>
+      </div>
+      <p class="modal-desc">Paste columns from Excel, Google Sheets, or Desmos (e.g. <code>Time [Tab/Space] OD</code>):</p>
+      <textarea id="pasteTextarea" placeholder="0     0
+30    0
+60    0.082
+90    0.090
+120   0.214
+150   0.335
+180   0.517
+210   0.760
+240   1.146
+270   1.500
+300   1.941
+330   2.372
+360   2.745
+390   2.835
+420   2.915"></textarea>
+      <div class="modal-footer">
+        <button id="btnApplyPaste" class="btn btn-success">Apply Data</button>
+        <button id="btnCancelPaste" class="btn btn-secondary">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
