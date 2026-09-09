@@ -4,9 +4,15 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Microbial Growth & Optical Density Simulation Lab</title>
-  <!-- Chart.js & SheetJS for high-performance plotting and real Excel generation -->
+  
+  <!-- Core Plotting & File Libraries -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  
+  <!-- Robust Client-Side Vector PDF Engine (No Browser Print dialog!) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -30,9 +36,9 @@
         <div class="export-dropdown">
           <button id="exportMenuBtn" class="btn btn-primary">💾 Export Report ▾</button>
           <div id="exportDropdownMenu" class="dropdown-menu hidden">
+            <button onclick="exportToPDF()">📄 Direct Download PDF (.pdf)</button>
             <button onclick="exportToExcel()">📊 Excel (.xlsx)</button>
             <button onclick="exportToWord()">📝 Word Report (.doc)</button>
-            <button onclick="exportToPDF()">📄 Print / Save PDF</button>
           </div>
         </div>
       </div>
@@ -124,7 +130,7 @@
           <div class="card-header">
             <h3>🔬 MICROBIAL KINETICS SOLVER</h3>
           </div>
-          <p class="section-desc">Compute specific growth rate (&mu;) and generation time directly from any two log-phase measurements:</p>
+          <p class="section-desc">Compute specific growth rate (&mu;) and generation time directly from two log points:</p>
           <div class="kinetics-grid">
             <div class="kinetics-input-group">
               <label>Point 1 (t<sub>1</sub> min, OD<sub>1</sub>):</label>
@@ -224,9 +230,8 @@
           <div class="lit-content">
             <p><strong>Modified Gompertz Equation:</strong> <span class="math-eq">y(t) = A &middot; exp(-exp((&mu;<sub>m</sub> &middot; e / A) &middot; (&lambda; - t) + 1))</span></p>
             <ul class="lit-list">
-              <li><strong>Zwietering, M. H., et al. (1990).</strong> <em>Modeling of the Bacterial Growth Curve.</em> Applied and Environmental Microbiology, 56(6), 1875-1881.</li>
-              <li><strong>Sezonov, G., et al. (2007).</strong> <em>Escherichia coli Physiology in Luria-Bertani Broth.</em> Journal of Bacteriology, 189(23), 8746-8749.</li>
-              <li><strong>Koch, A. L. (1970).</strong> <em>Turbidity and cell count deviations in dense spectrophotometry.</em> Analytical Biochemistry.</li>
+              <li><strong>Zwietering, M. H., et al. (1990).</strong> <em>Modeling of the Bacterial Growth Curve.</em> Appl. Environ. Microbiol., 56(6), 1875-1881.</li>
+              <li><strong>Sezonov, G., et al. (2007).</strong> <em>Escherichia coli Physiology in Luria-Bertani Broth.</em> J. Bacteriol., 189(23), 8746-8749.</li>
             </ul>
           </div>
         </div>

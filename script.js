@@ -92,7 +92,8 @@ function setupEventListeners() {
   document.getElementById("btnApplyPaste").addEventListener("click", handleBulkPaste);
 
   // Export Menu
-  document.getElementById("exportMenuBtn").addEventListener("click", () => {
+  document.getElementById("exportMenuBtn").addEventListener("click", (e) => {
+    e.stopPropagation();
     document.getElementById("exportDropdownMenu").classList.toggle("hidden");
   });
   window.addEventListener("click", (e) => {
@@ -555,7 +556,135 @@ function loadFromLocalStorage() {
   }
 }
 
+// -------------------------------------------------------------------------
+// DIRECT VECTOR PDF GENERATOR USING jsPDF & AutoTable (ZERO BROWSER GLITCHES)
+// -------------------------------------------------------------------------
+window.exportToPDF = function() {
+  // Hide dropdown menu immediately
+  document.getElementById("exportDropdownMenu").classList.add("hidden");
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({
+    orientation: "p",
+    unit: "mm",
+    format: "a4"
+  });
+
+  const data = experiments[currentExpKey] || [];
+  const tdVal = document.getElementById("valDoublingTime").textContent;
+  const r2Val = document.getElementById("valR2").textContent;
+  const infVal = document.getElementById("valInflection").textContent;
+  const maxOdVal = document.getElementById("valMaxOD").textContent;
+  const lagVal = document.getElementById("valLagPhase").textContent;
+  const logVal = document.getElementById("valLogPhase").textContent;
+  const statVal = document.getElementById("valStationaryPhase").textContent;
+
+  // Header Banner
+  doc.setFillColor(30, 27, 75); // Indigo dark
+  doc.rect(0, 0, 210, 24, "F");
+  
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(16);
+  doc.text("MICROBIAL GROWTH KINETICS LAB REPORT", 14, 13);
+  
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(199, 210, 254);
+  doc.text(`Run: ${currentExpKey}  |  Generated: ${new Date().toLocaleString()}`, 14, 19);
+
+  // Section 1: Biological Parameters Table
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.setTextColor(30, 41, 59);
+  doc.text("1. BIOLOGICAL & KINETIC PARAMETERS", 14, 33);
+
+  const paramRows = [
+    ["Doubling Time (td)", tdVal, "Goodness of Fit (R²)", r2Val],
+    ["Inflection Point (ti)", infVal, "Max Optical Density", maxOdVal],
+    ["Lag Phase", lagVal, "Exponential Phase", logVal],
+    ["Stationary Phase", statVal, "Total Measured Points", `${data.length} readings`]
+  ];
+
+  doc.autoTable({
+    startY: 36,
+    body: paramRows,
+    theme: 'grid',
+    styles: { fontSize: 9, cellPadding: 3, textColor: [30, 41, 59] },
+    columnStyles: {
+      0: { fontStyle: 'bold', fillColor: [248, 250, 252], width: 45 },
+      1: { fontStyle: 'bold', textColor: [99, 102, 241], width: 45 },
+      2: { fontStyle: 'bold', fillColor: [248, 250, 252], width: 45 },
+      3: { fontStyle: 'bold', textColor: [16, 185, 129], width: 45 }
+    },
+    margin: { left: 14, right: 14 }
+  });
+
+  let currentY = doc.lastAutoTable.finalY + 8;
+
+  // Section 2: Chart Image (High Resolution Canvas Snapshot)
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.setTextColor(30, 41, 59);
+  doc.text("2. GROWTH CURVE PLOT", 14, currentY);
+  currentY += 4;
+
+  if (chartInstance) {
+    try {
+      const chartImg = chartInstance.toBase64Image();
+      // Embed chart: 182mm wide, 72mm high
+      doc.addImage(chartImg, "PNG", 14, currentY, 182, 72);
+      currentY += 76;
+    } catch (e) {
+      console.error("Error capturing chart", e);
+    }
+  }
+
+  // Section 3: Full Data Table (ALL 15+ values included, no scroll cutting!)
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(11);
+  doc.setTextColor(30, 41, 59);
+  doc.text(`3. EXPERIMENTAL READINGS (N = ${data.length})`, 14, currentY);
+
+  const tableData = data.map((d, index) => [
+    index + 1,
+    `${d.t} min`,
+    d.od.toFixed(3)
+  ]);
+
+  doc.autoTable({
+    startY: currentY + 3,
+    head: [["#", "Time (min)", "Optical Density (OD600)"]],
+    body: tableData,
+    theme: "striped",
+    headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255], fontStyle: "bold" },
+    styles: { fontSize: 8.5, cellPadding: 2.2, halign: "center" },
+    margin: { left: 14, right: 14 },
+    pageBreak: "auto"
+  });
+
+  // Footer on all pages
+  const pageCount = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= pageCount; i++) {
+    doc.setPage(i);
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(8);
+    doc.setTextColor(148, 163, 184);
+    doc.text(
+      `Microbial Growth Kinetics Simulation Lab • Page ${i} of ${pageCount}`,
+      14,
+      290
+    );
+  }
+
+  // Directly download clean PDF file
+  const filename = `${currentExpKey.replace(/[^a-z0-9]/gi, '_')}_Report.pdf`;
+  doc.save(filename);
+};
+
+// Export to Excel (.xlsx)
 window.exportToExcel = function() {
+  document.getElementById("exportDropdownMenu").classList.add("hidden");
   const data = experiments[currentExpKey] || [];
   const wsData = [
     ["MICROBIAL GROWTH EXPERIMENTAL REPORT"],
@@ -576,7 +705,9 @@ window.exportToExcel = function() {
   XLSX.writeFile(wb, `${currentExpKey.replace(/[^a-z0-9]/gi, '_')}.xlsx`);
 };
 
+// Export to Word (.doc)
 window.exportToWord = function() {
+  document.getElementById("exportDropdownMenu").classList.add("hidden");
   const data = experiments[currentExpKey] || [];
   let tableRows = data.map((pt, i) => `<tr><td style="border:1px solid #cbd5e1; padding:6px 12px;">${i+1}</td><td style="border:1px solid #cbd5e1; padding:6px 12px;">${pt.t}</td><td style="border:1px solid #cbd5e1; padding:6px 12px;">${pt.od.toFixed(3)}</td></tr>`).join("");
 
@@ -633,243 +764,4 @@ window.exportToWord = function() {
   a.href = url;
   a.download = `${currentExpKey.replace(/[^a-z0-9]/gi, '_')}.doc`;
   a.click();
-};
-
-// EXCELLENT, PRISTINE PDF EXPORT ENGINE
-window.exportToPDF = function() {
-  // 1. Immediately hide the dropdown menu so it never overlays the PDF
-  const dropdown = document.getElementById("exportDropdownMenu");
-  if (dropdown) dropdown.classList.add("hidden");
-
-  const data = experiments[currentExpKey] || [];
-  const chartImgUri = chartInstance ? chartInstance.toBase64Image() : "";
-  const isRequestedAxis = (currentOrientation === "OD_X_TIME_Y");
-  const axisDesc = isRequestedAxis ? "X: Optical Density (OD) &nbsp;|&nbsp; Y: Time (minutes)" : "X: Time (minutes) &nbsp;|&nbsp; Y: Optical Density (OD)";
-
-  let tableRows = data.map((pt, i) => `
-    <tr>
-      <td style="text-align:center;">${i + 1}</td>
-      <td style="text-align:center; font-weight:600;">${pt.t} min</td>
-      <td style="text-align:center; font-family:monospace; font-weight:bold; color:#1e293b;">${pt.od.toFixed(3)}</td>
-    </tr>
-  `).join("");
-
-  // Create a dedicated, crystal-clear scientific print document in an isolated print window
-  const printWindow = window.open("", "_blank", "width=900,height=1000");
-  if (!printWindow) {
-    // If pop-up blocked, fall back to native print with print-friendly CSS
-    window.print();
-    return;
-  }
-
-  const printDoc = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8" />
-      <title>Lab Report - ${currentExpKey}</title>
-      <style>
-        @page {
-          size: A4 portrait;
-          margin: 14mm 15mm;
-        }
-        body {
-          font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
-          color: #0f172a;
-          background: #ffffff;
-          line-height: 1.45;
-          margin: 0;
-          padding: 10px;
-        }
-        .header {
-          border-bottom: 2.5px solid #4f46e5;
-          padding-bottom: 10px;
-          margin-bottom: 16px;
-        }
-        .header h1 {
-          font-size: 18pt;
-          color: #1e1b4b;
-          margin: 0 0 4px 0;
-        }
-        .meta-grid {
-          display: flex;
-          justify-content: space-between;
-          font-size: 9.5pt;
-          color: #475569;
-        }
-        .section-title {
-          font-size: 11pt;
-          font-weight: bold;
-          text-transform: uppercase;
-          letter-spacing: 0.05em;
-          color: #312e81;
-          border-bottom: 1px solid #e2e8f0;
-          padding-bottom: 4px;
-          margin: 16px 0 8px 0;
-        }
-        /* Parameters Grid */
-        .metrics-table {
-          width: 100%;
-          border-collapse: collapse;
-          margin-bottom: 12px;
-        }
-        .metrics-table td {
-          border: 1px solid #e2e8f0;
-          padding: 8px 12px;
-          background: #f8fafc;
-          width: 50%;
-        }
-        .metric-label {
-          font-size: 8pt;
-          color: #64748b;
-          text-transform: uppercase;
-          margin-bottom: 2px;
-        }
-        .metric-value {
-          font-size: 14pt;
-          font-weight: 700;
-          color: #1e1b4b;
-        }
-        .phase-box {
-          background: #f1f5f9;
-          border: 1px solid #cbd5e1;
-          border-radius: 6px;
-          padding: 8px 12px;
-          font-size: 9pt;
-          margin-bottom: 14px;
-        }
-        .phase-box div {
-          margin-bottom: 3px;
-        }
-        /* Chart Image */
-        .chart-box {
-          text-align: center;
-          margin: 12px 0 16px 0;
-          page-break-inside: avoid;
-        }
-        .chart-box img {
-          max-width: 95%;
-          height: auto;
-          max-height: 340px;
-          border: 1px solid #e2e8f0;
-          border-radius: 6px;
-        }
-        .chart-caption {
-          font-size: 8.5pt;
-          color: #64748b;
-          margin-top: 4px;
-          font-style: italic;
-        }
-        /* Data Table */
-        .data-table {
-          width: 100%;
-          border-collapse: collapse;
-          font-size: 9pt;
-          margin-top: 6px;
-        }
-        .data-table th {
-          background: #f1f5f9;
-          color: #1e293b;
-          border: 1px solid #cbd5e1;
-          padding: 6px 10px;
-          font-weight: bold;
-        }
-        .data-table td {
-          border: 1px solid #e2e8f0;
-          padding: 5px 10px;
-        }
-        .data-table tr:nth-child(even) {
-          background: #fafafa;
-        }
-        .footer-note {
-          font-size: 8pt;
-          color: #94a3b8;
-          border-top: 1px solid #e2e8f0;
-          padding-top: 8px;
-          margin-top: 18px;
-        }
-      </style>
-    </head>
-    <body>
-      <div class="header">
-        <h1>Microbial Growth Kinetics & OD Analysis Report</h1>
-        <div class="meta-grid">
-          <div><strong>Run Identifier:</strong> ${currentExpKey}</div>
-          <div><strong>Total Points:</strong> ${data.length} readings</div>
-          <div><strong>Date:</strong> ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}</div>
-        </div>
-      </div>
-
-      <div class="section-title">1. Biological & Kinetic Model Parameters</div>
-      <table class="metrics-table">
-        <tr>
-          <td>
-            <div class="metric-label">Doubling Time (t<sub>d</sub>)</div>
-            <div class="metric-value">${document.getElementById("valDoublingTime").textContent}</div>
-            <small style="color:#64748b;">Formula: ln(2) / &mu;<sub>max</sub></small>
-          </td>
-          <td>
-            <div class="metric-label">Goodness of Fit (R<sup>2</sup>)</div>
-            <div class="metric-value">${document.getElementById("valR2").textContent}</div>
-            <small style="color:#64748b;">Modified Gompertz correlation</small>
-          </td>
-        </tr>
-        <tr>
-          <td>
-            <div class="metric-label">Inflection Point (t<sub>i</sub>)</div>
-            <div class="metric-value">${document.getElementById("valInflection").textContent}</div>
-            <small style="color:#64748b;">Maximum specific rate inflection</small>
-          </td>
-          <td>
-            <div class="metric-label">Max Optical Density (Yield)</div>
-            <div class="metric-value">${document.getElementById("valMaxOD").textContent}</div>
-            <small style="color:#64748b;">Stationary saturation plateau</small>
-          </td>
-        </tr>
-      </table>
-
-      <div class="phase-box">
-        <div><strong>• Lag Phase:</strong> ${document.getElementById("valLagPhase").textContent}</div>
-        <div><strong>• Exponential (Log) Phase:</strong> ${document.getElementById("valLogPhase").textContent}</div>
-        <div><strong>• Stationary Phase:</strong> ${document.getElementById("valStationaryPhase").textContent}</div>
-      </div>
-
-      <div class="section-title">2. Growth Kinetics Curve Visualization</div>
-      <div class="chart-box">
-        ${chartImgUri ? `<img src="${chartImgUri}" alt="Fitted Growth Curve" />` : '<p style="color:#64748b;">(No chart generated)</p>'}
-        <div class="chart-caption">Figure 1: Microbial Growth Simulation Curve (${axisDesc})</div>
-      </div>
-
-      <div class="section-title">3. Complete Experimental Measurements (N = ${data.length})</div>
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th style="width: 15%;">Index (#)</th>
-            <th style="width: 45%;">Time Elapsed</th>
-            <th style="width: 40%;">Optical Density (OD<sub>600</sub>)</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${tableRows}
-        </tbody>
-      </table>
-
-      <div class="footer-note">
-        Generated by Microbial Growth Kinetics & OD Simulation Lab &bull; Model: Zwietering et al. (1990) Modified Gompertz Equation
-      </div>
-
-      <script>
-        window.addEventListener('load', () => {
-          setTimeout(() => {
-            window.print();
-          }, 350);
-        });
-      </script>
-    </body>
-    </html>
-  `;
-
-  printWindow.document.open();
-  printWindow.document.write(printDoc);
-  printWindow.document.close();
 };
